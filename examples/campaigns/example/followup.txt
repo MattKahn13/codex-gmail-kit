@@ -1,0 +1,7 @@
+Subject: Re: Quick question for {company}
+
+Hi {first_name|there},
+
+Just floating this back up in case it got buried. Happy to share more if it's useful, and no worries if not.
+
+Thanks,

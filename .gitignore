@@ -1,0 +1,13 @@
+# Your saved Gmail login. Never commit this: it IS your signed-in session.
+.chrome-profile/
+
+# Your campaigns, recipient lists, send record and screenshots stay on your machine.
+my/*
+!my/README.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/

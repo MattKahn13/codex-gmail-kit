@@ -1,0 +1,9 @@
+Subject: Quick question for {company}
+
+Hi {first_name|there},
+
+I came across {company} and wanted to reach out. {personal_line|}
+
+I help businesses like yours with [WHAT YOU DO]. Would it be worth a quick call next week to see if it's a fit?
+
+Thanks,
