@@ -34,6 +34,12 @@ if sys.version_info < (3, 9):
 
 from mailkit import config  # noqa: E402
 
+try:
+    from selenium.common.exceptions import WebDriverException
+except ImportError:             # `doctor` must still run before the packages are installed
+    class WebDriverException(Exception):
+        pass
+
 REAL_FLAG_HELP = "actually send. Without this flag it is a practice run and nothing leaves Gmail."
 
 
@@ -51,8 +57,16 @@ def _need_sender(settings) -> str:
 
 
 def _driver(headless=False):
+    """One Chrome for the whole run. KIT_HEADLESS=1 runs with no window at all: the fallback when
+    a windowed Chrome will not start or keeps crashing on this computer."""
     from mailkit.browser import build_driver
+    headless = headless or os.environ.get("KIT_HEADLESS") == "1"
     return build_driver(headless=headless, offscreen=not headless)
+
+
+CHROME_DIED = ("Chrome closed or crashed in the middle of the run ({err}). Nothing after the last "
+               "line above was sent. Close other heavy programs and retry; if it keeps happening, "
+               "retry with KIT_HEADLESS=1 set.")
 
 
 def _print_skips(skipped, label="Skipped"):
@@ -121,6 +135,9 @@ def _run(emails, *, send, kind, campaign_name, settings, ledger, pace=True, shot
         print("\nStopped by you. Everything sent so far is recorded; a re-run picks up from here.")
     except RuntimeError as err:
         print(f"\nCould not start: {err}")
+        return 1
+    except WebDriverException as err:
+        print("\n" + CHROME_DIED.format(err=str(err).splitlines()[0][:100]))
         return 1
     finally:
         quit_driver(driver)
@@ -239,6 +256,9 @@ def cmd_test(a) -> int:
     except RuntimeError as err:
         print(f"Could not start: {err}")
         return 1
+    except WebDriverException as err:
+        print(CHROME_DIED.format(err=str(err).splitlines()[0][:100]))
+        return 1
     finally:
         quit_driver(driver)
     ledger.append(sender, res["status"], kind="test", note=res["note"], campaign=name,
@@ -316,6 +336,9 @@ def cmd_schedule(a) -> int:
     except RuntimeError as err:
         print(f"Could not start: {err}")
         return 1
+    except WebDriverException as err:
+        print(CHROME_DIED.format(err=str(err).splitlines()[0][:100]))
+        return 1
     except KeyboardInterrupt:
         print("\nStopped by you. Everything scheduled so far is recorded.")
     finally:
@@ -387,6 +410,9 @@ def cmd_replies(a) -> int:
                        own=sender)
     except RuntimeError as err:
         print(f"Could not start: {err}")
+        return 1
+    except WebDriverException as err:
+        print(CHROME_DIED.format(err=str(err).splitlines()[0][:100]))
         return 1
     finally:
         quit_driver(driver)

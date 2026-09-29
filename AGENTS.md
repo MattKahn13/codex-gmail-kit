@@ -224,6 +224,7 @@ change. Test with `preview` (which never sends), then `test` (which only emails 
 | `Not signed in` | `kit.py login` |
 | `signed in as X, but this kit is locked to Y` | they signed in to the wrong account in the kit's Chrome: `login` again as Y, or `login --switch` to make X the sender |
 | `already in use` / Chrome won't start | close the kit's Chrome window; on repeat failure restart the computer; `doctor` |
+| `Chrome did not start on attempt N` / `Chrome closed or crashed` | usually the computer is short on memory: close heavy programs and retry. If it persists, run the same command with the environment variable `KIT_HEADLESS=1` (Chrome with no window at all) |
 | `session not created` / version mismatch | update Chrome (menu > Help > About Google Chrome), then retry |
 | `the recipient did not land` / `the compose window did not open` | usually a slow load: retry once. If persistent, run `preview` and look at the screenshot |
 | `message landed BELOW the signature` | report it. Don't send until `preview` passes |

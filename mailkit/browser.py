@@ -91,6 +91,43 @@ def _quiet_driver_service() -> None:
     svc._kit_no_window = True
 
 
+def _options(uc, headless: bool, offscreen: bool):
+    opts = uc.ChromeOptions()
+    for arg in ("--no-first-run", "--no-default-browser-check", "--disable-notifications",
+                "--disable-popup-blocking", "--lang=en-US"):
+        opts.add_argument(arg)
+    if headless:
+        opts.add_argument("--headless=new")
+        opts.add_argument("--window-size=1400,1000")
+    elif offscreen:
+        opts.add_argument("--window-position=-32000,-32000")
+        opts.add_argument("--window-size=1400,1000")
+    else:
+        opts.add_argument("--start-maximized")
+    return opts
+
+
+def _kill_profile_chrome() -> None:
+    """After a failed start, close any Chrome still holding THIS kit's profile (never the user's own
+    Chrome), so the retry does not find the profile locked."""
+    marker = str(config.PROFILE_DIR)
+    try:
+        if config.IS_WINDOWS:
+            out = _run(["powershell", "-NoProfile", "-Command",
+                        "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | "
+                        "Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress"])
+            import json
+            procs = json.loads(out or "[]")
+            procs = procs if isinstance(procs, list) else [procs]
+            for p in procs:
+                if marker.lower() in (p.get("CommandLine") or "").lower():
+                    _run(["taskkill", "/PID", str(p["ProcessId"]), "/T", "/F"])
+        else:
+            _run(["pkill", "-f", f"user-data-dir={marker}"])
+    except Exception:
+        pass
+
+
 def build_driver(*, headless: bool = False, offscreen: bool = False):
     """Chrome on the saved-login profile.
 
@@ -105,26 +142,17 @@ def build_driver(*, headless: bool = False, offscreen: bool = False):
         raise SystemExit("Missing packages. Run:  python kit.py doctor")
 
     config.PROFILE_DIR.mkdir(parents=True, exist_ok=True)
-    opts = uc.ChromeOptions()
-    for arg in ("--no-first-run", "--no-default-browser-check", "--disable-notifications",
-                "--disable-popup-blocking", "--lang=en-US"):
-        opts.add_argument(arg)
-    if headless:
-        opts.add_argument("--headless=new")
-        opts.add_argument("--window-size=1400,1000")
-    elif offscreen:
-        opts.add_argument("--window-position=-32000,-32000")
-        opts.add_argument("--window-size=1400,1000")
-    else:
-        opts.add_argument("--start-maximized")
     _quiet_driver_service()
+    major = chrome_major()
 
     driver = None
     last = None
-    for _ in range(3):              # "cannot connect to chrome" at startup is usually a one-off
+    for attempt in range(3):        # "cannot connect to chrome" at startup is usually a one-off
         try:
-            driver = uc.Chrome(options=opts, user_data_dir=str(config.PROFILE_DIR),
-                               version_main=chrome_major(), headless=headless)
+            # A fresh options object per attempt: undetected-chromedriver refuses to reuse one.
+            driver = uc.Chrome(options=_options(uc, headless, offscreen),
+                               user_data_dir=str(config.PROFILE_DIR), version_main=major,
+                               headless=headless)
             break
         except Exception as e:  # noqa: BLE001
             last = e
@@ -133,8 +161,11 @@ def build_driver(*, headless: bool = False, offscreen: bool = False):
                 raise SystemExit(
                     "The kit's Chrome profile is already open in another window or run.\n"
                     "Close that Chrome window (or wait for the other run to finish) and retry.")
+            print(f"  (Chrome did not start on attempt {attempt + 1}: {str(e).splitlines()[0][:120]}; "
+                  f"retrying)", flush=True)
+            _kill_profile_chrome()
             import time
-            time.sleep(2)
+            time.sleep(3)
     if driver is None:
         raise SystemExit(f"Chrome would not start: {last}\nRun:  python kit.py doctor")
 
