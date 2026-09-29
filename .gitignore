@@ -11,3 +11,9 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+
+# Maintainer's local project-tracking files (never published)
+.project/
+PROJECT.md
+CLAUDE.md
+docs/superpowers/
